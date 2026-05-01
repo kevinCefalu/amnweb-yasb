@@ -24,6 +24,9 @@ logger = logging.getLogger("home_assistant_widget")
 class HomeAssistantWidget(BaseWidget):
     validation_schema = HomeAssistantConfig
 
+    _ON_STATES = frozenset({"on", "home", "open", "playing", "locked"})
+    _OFF_STATES = frozenset({"off", "not_home", "closed", "paused", "unlocked"})
+
     def __init__(self, config: HomeAssistantConfig) -> None:
         super().__init__(class_name="home-assistant-widget")
         self.config = config
@@ -134,8 +137,8 @@ class HomeAssistantWidget(BaseWidget):
 
         # Aggregate counts
         total = len(entities)
-        count_on = sum(1 for e in entities if states.get(e.entity_id, {}).get("state", "").lower() in ("on", "home", "open", "playing", "locked"))
-        count_off = sum(1 for e in entities if states.get(e.entity_id, {}).get("state", "").lower() in ("off", "not_home", "closed", "paused", "unlocked"))
+        count_on = sum(1 for e in entities if states.get(e.entity_id, {}).get("state", "").lower() in self._ON_STATES)
+        count_off = sum(1 for e in entities if states.get(e.entity_id, {}).get("state", "").lower() in self._OFF_STATES)
         count_unavailable = sum(1 for e in entities if states.get(e.entity_id, {}).get("state", "").lower() in ("unavailable", "unknown"))
 
         # Primary entity
@@ -249,8 +252,8 @@ class HomeAssistantWidget(BaseWidget):
     def _call_service_rest_bg(self, domain: str, service: str, service_data: dict[str, Any] | None = None) -> None:
         from PyQt6.QtCore import QThread
 
-        class _Worker(QThread):
-            def __init__(self, base_url, token, domain, service, service_data, timeout_ms):
+        class _RestServiceWorker(QThread):
+            def __init__(self, base_url, token, domain, service, service_data, timeout_ms, verify_ssl):
                 super().__init__()
                 self._base_url = base_url
                 self._token = token
@@ -258,6 +261,7 @@ class HomeAssistantWidget(BaseWidget):
                 self._service = service
                 self._service_data = service_data
                 self._timeout_ms = timeout_ms
+                self._verify_ssl = verify_ssl
 
             def run(self):
                 call_service_rest(
@@ -267,15 +271,17 @@ class HomeAssistantWidget(BaseWidget):
                     service=self._service,
                     service_data=self._service_data,
                     timeout_ms=self._timeout_ms,
+                    verify_ssl=self._verify_ssl,
                 )
 
-        worker = _Worker(
+        worker = _RestServiceWorker(
             base_url=self.config.base_url,
             token=self.config.token,
             domain=domain,
             service=service,
             service_data=service_data,
             timeout_ms=self.config.polling.timeout_ms,
+            verify_ssl=self.config.polling.verify_ssl,
         )
         worker.finished.connect(worker.deleteLater)
         worker.start()

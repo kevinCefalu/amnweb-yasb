@@ -9,6 +9,7 @@ Reference: https://www.home-assistant.io/docs/api/rest/
 
 import json
 import logging
+import ssl
 from typing import Any
 from urllib.error import HTTPError, URLError
 from urllib.request import Request, urlopen
@@ -17,6 +18,14 @@ from PyQt6.QtCore import QThread, pyqtSignal
 
 logger = logging.getLogger("home_assistant_rest")
 
+
+def _make_ssl_context(verify_ssl: bool) -> ssl.SSLContext | None:
+    if not verify_ssl:
+        ctx = ssl.create_default_context()
+        ctx.check_hostname = False
+        ctx.verify_mode = ssl.CERT_NONE
+        return ctx
+    return None
 
 class HomeAssistantRestWorker(QThread):
     """
@@ -59,9 +68,10 @@ class HomeAssistantRestWorker(QThread):
 
     def _get_state(self, entity_id: str) -> dict[str, Any] | None:
         url = f"{self._base_url}/api/states/{entity_id}"
+        ssl_ctx = _make_ssl_context(self._verify_ssl)
         try:
             req = Request(url, headers={"Authorization": f"Bearer {self._token}", "Content-Type": "application/json"})
-            with urlopen(req, timeout=self._timeout_s) as resp:
+            with urlopen(req, timeout=self._timeout_s, context=ssl_ctx) as resp:
                 return json.loads(resp.read().decode())
         except HTTPError as exc:
             logger.warning("REST GET %s failed: HTTP %s", url, exc.code)
@@ -79,6 +89,7 @@ def call_service_rest(
     service: str,
     service_data: dict[str, Any] | None = None,
     timeout_ms: int = 5000,
+    verify_ssl: bool = True,
 ) -> bool:
     """
     Call a Home Assistant service via REST (synchronous).
@@ -88,6 +99,7 @@ def call_service_rest(
     """
     url = f"{base_url.rstrip('/')}/api/services/{domain}/{service}"
     payload = json.dumps(service_data or {}).encode()
+    ssl_ctx = _make_ssl_context(verify_ssl)
     try:
         req = Request(
             url,
@@ -96,7 +108,7 @@ def call_service_rest(
             headers={"Authorization": f"Bearer {token}", "Content-Type": "application/json"},
         )
         timeout_s = max(timeout_ms / 1000.0, 0.5)
-        with urlopen(req, timeout=timeout_s):
+        with urlopen(req, timeout=timeout_s, context=ssl_ctx):
             return True
     except HTTPError as exc:
         logger.warning("REST POST %s failed: HTTP %s", url, exc.code)
