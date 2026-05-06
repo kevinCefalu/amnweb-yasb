@@ -27,6 +27,7 @@ def _make_ssl_context(verify_ssl: bool) -> ssl.SSLContext | None:
         return ctx
     return None
 
+
 class HomeAssistantRestWorker(QThread):
     """
     Background thread that polls Home Assistant entity states via REST.

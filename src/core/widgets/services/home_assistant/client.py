@@ -136,6 +136,29 @@ class HomeAssistantClient(QObject):
             self._pending_callbacks[msg_id] = lambda msg: callback(msg.get("result", ""))
         return msg_id
 
+    def sign_path(self, path: str, expires: int = 120, callback: Callable[[str], None] | None = None) -> int:
+        """
+        Ask Home Assistant to sign a path for short-lived authenticated browser navigation.
+
+        Returns the message id.
+        """
+        if not self._authenticated:
+            return -1
+
+        payload: dict[str, Any] = {
+            "type": "auth/sign_path",
+            "path": path,
+        }
+        if expires > 0:
+            payload["expires"] = expires
+
+        msg_id = self._send(payload)
+        if callback is not None:
+            self._pending_callbacks[msg_id] = lambda msg: callback(
+                (msg.get("result") or {}).get("path", "") if isinstance(msg.get("result"), dict) else ""
+            )
+        return msg_id
+
     def _send(self, payload: dict[str, Any]) -> int:
         msg_id = self._msg_id
         self._msg_id += 1
@@ -155,7 +178,7 @@ class HomeAssistantClient(QObject):
         self._reconnect_timer.start()
 
     def _on_error(self, error: QAbstractSocket.SocketError) -> None:
-        logger.warning("WebSocket error: %s – scheduling reconnect", error)
+        logger.warning("WebSocket error: %s - scheduling reconnect", error)
         self._reconnect_timer.start()
 
     def _handle_message(self, raw: str) -> None:

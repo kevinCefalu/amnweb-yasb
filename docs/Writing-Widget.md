@@ -160,7 +160,7 @@ self.register_callback("toggle_label", self._toggle_label)
 
 ```yaml
 my_widget:
-    type: "yasb.my_widget.MyWidget"
+    type: "my_widget.my_widget.MyWidget"
     options:
         label: "<span>\ue71a</span>"
         animation:
@@ -168,6 +168,9 @@ my_widget:
             type: "fadeInOut"
             duration: 200
 ```
+
+-   Use the canonical `type` value from your current `schema.json`/widget registration.
+-   Avoid hard-coding a namespace prefix in docs or templates because widget namespaces may evolve.
 
 ### 9. Python Code Style
 

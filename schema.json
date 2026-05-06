@@ -5280,7 +5280,7 @@
     "HomeAssistantEntry": {
       "properties": {
         "type": {
-          "const": "yasb.home_assistant.HomeAssistantWidget",
+          "const": "home_assistant.home_assistant.HomeAssistantWidget",
           "title": "Type",
           "type": "string"
         },

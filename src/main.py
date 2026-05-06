@@ -8,6 +8,7 @@ from sys import argv
 from types import TracebackType
 
 import qasync
+from PyQt6.QtCore import QCoreApplication, Qt
 
 from core.application import YASBApplication
 from core.bar_manager import BarManager
@@ -88,6 +89,8 @@ def single_instance_lock(name: str = "yasb_reborn"):
 
 def main():
     """Main entry point"""
+    # Required for QtWebEngine when imported after application startup.
+    QCoreApplication.setAttribute(Qt.ApplicationAttribute.AA_ShareOpenGLContexts)
     app = YASBApplication(argv)
 
     if is_first_run() and not run_setup_wizard():

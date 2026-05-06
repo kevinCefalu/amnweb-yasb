@@ -16,6 +16,7 @@ from PyQt6.QtCore import (
 )
 from PyQt6.QtGui import (
     QFontMetrics,
+    QMouseEvent,
     QPainter,
     QPaintEvent,
     QResizeEvent,
@@ -163,7 +164,10 @@ class PopupWidget(QWidget):
         self._popup_content = QFrame(self)
 
         self._fade_animation = QPropertyAnimation(self, b"windowOpacity")
-        self._fade_animation.setDuration(80)
+        self._open_fade_duration_ms = 80
+        self._close_fade_duration_ms = 80
+        self._retain_on_close = False
+        self._fade_animation.setDuration(self._open_fade_duration_ms)
         self._fade_animation.finished.connect(self._on_animation_finished)
 
         self._is_closing = False
@@ -228,20 +232,30 @@ class PopupWidget(QWidget):
     def _on_animation_finished(self):
         """Handle animation completion."""
         if self._is_closing:
-            # Remove from registry
-            try:
-                parent_id = id(self._parent)
-                if parent_id in PopupWidget._open_popups and PopupWidget._open_popups[parent_id] is self:
-                    PopupWidget._open_popups.pop(parent_id, None)
-            except Exception:
-                pass
+            self._unregister_popup()
 
             try:
                 super().hide()
-                self.deleteLater()
+                if not self._retain_on_close:
+                    self.deleteLater()
 
             except Exception:
                 pass
+
+    def _unregister_popup(self) -> None:
+        try:
+            parent_id = id(self._parent)
+            if parent_id in PopupWidget._open_popups and PopupWidget._open_popups[parent_id] is self:
+                PopupWidget._open_popups.pop(parent_id, None)
+        except Exception:
+            pass
+
+    def set_retain_on_close(self, retain_on_close: bool) -> None:
+        self._retain_on_close = retain_on_close
+
+    def set_fade_durations(self, open_ms: int, close_ms: int | None = None) -> None:
+        self._open_fade_duration_ms = max(0, open_ms)
+        self._close_fade_duration_ms = max(0, self._open_fade_duration_ms if close_ms is None else close_ms)
 
     def hide_animated(self):
         """Hide the popup with animation."""
@@ -260,6 +274,7 @@ class PopupWidget(QWidget):
 
         self._is_closing = True
 
+        self._fade_animation.setDuration(self._close_fade_duration_ms)
         self._fade_animation.setStartValue(current_opacity)
         self._fade_animation.setEndValue(0.0)
         self._fade_animation.start()
@@ -274,17 +289,12 @@ class PopupWidget(QWidget):
 
         self._is_closing = True
 
-        # Remove from registry
-        try:
-            parent_id = id(self._parent)
-            if parent_id in PopupWidget._open_popups and PopupWidget._open_popups[parent_id] is self:
-                PopupWidget._open_popups.pop(parent_id, None)
-        except Exception:
-            pass
+        self._unregister_popup()
 
         try:
             super().hide()
-            self.deleteLater()
+            if not self._retain_on_close:
+                self.deleteLater()
         except Exception:
             pass
 
@@ -343,6 +353,7 @@ class PopupWidget(QWidget):
         super().showEvent(event)
 
         self.activateWindow()
+        self._fade_animation.setDuration(self._open_fade_duration_ms)
         self._fade_animation.setStartValue(0.0)
         self._fade_animation.setEndValue(1.0)
         self._fade_animation.start()
@@ -404,6 +415,81 @@ class PopupWidget(QWidget):
             self.setPosition(alignment, direction, offset_left, offset_top)
 
         super().resizeEvent(event)
+
+
+class PinnablePopup(PopupWidget):
+    """Popup that can be pinned to stay open and dragged while pinned."""
+
+    def __init__(
+        self,
+        parent: QWidget,
+        blur: bool = False,
+        round_corners: bool = False,
+        round_corners_type: str = "normal",
+        border_color: str = "None",
+        dark_mode: bool = False,
+    ):
+        super().__init__(parent, blur, round_corners, round_corners_type, border_color, dark_mode)
+        self._is_pinned = False
+        self._drag_pos: QPoint | None = None
+        self.setWindowFlags(
+            Qt.WindowType.Tool
+            | Qt.WindowType.FramelessWindowHint
+            | Qt.WindowType.WindowStaysOnTopHint
+            | Qt.WindowType.NoDropShadowWindowHint
+        )
+
+    @property
+    def is_pinned(self) -> bool:
+        return self._is_pinned
+
+    def set_pinned(self, pinned: bool) -> None:
+        self._is_pinned = pinned
+        if not pinned:
+            self._drag_pos = None
+
+    def event(self, a0: QEvent | None):
+        if a0 is None:
+            return False
+        if a0.type() == QEvent.Type.WindowDeactivate:
+            if self._is_pinned:
+                a0.accept()
+                return True
+            self.hide_animated()
+            return True
+        return super().event(a0)
+
+    def mousePressEvent(self, a0: QMouseEvent | None):
+        if a0 is None:
+            return
+        if self._is_pinned and a0.button() == Qt.MouseButton.LeftButton:
+            self._drag_pos = a0.globalPosition().toPoint() - self.frameGeometry().topLeft()
+            a0.accept()
+            return
+        super().mousePressEvent(a0)
+
+    def mouseMoveEvent(self, a0: QMouseEvent | None):
+        if a0 is None:
+            return
+        if self._is_pinned and self._drag_pos is not None and a0.buttons() & Qt.MouseButton.LeftButton:
+            self.move(a0.globalPosition().toPoint() - self._drag_pos)
+            a0.accept()
+            return
+        super().mouseMoveEvent(a0)
+
+    def mouseReleaseEvent(self, a0: QMouseEvent | None):
+        if a0 is None:
+            return
+        if self._is_pinned and a0.button() == Qt.MouseButton.LeftButton:
+            self._drag_pos = None
+            a0.accept()
+            return
+        super().mouseReleaseEvent(a0)
+
+    def eventFilter(self, obj, event):
+        if self._is_pinned:
+            return False
+        return super().eventFilter(obj, event)
 
 
 class ToastNotifier:
