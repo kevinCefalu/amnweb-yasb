@@ -138,6 +138,7 @@ Use these in `label` and `label_alt` templates:
 | `toggle`                                    | Toggle entities according to `actions.toggle_target`                   |
 | `toggle_first`                              | Always toggle the first configured entity                              |
 | `toggle_all`                                | Toggle all configured entities                                         |
+| `toggle_primary`                            | Toggle the configured primary entity                                   |
 | `toggle_dashboard`                          | Toggle an embedded Home Assistant dashboard popup                      |
 | `open_dashboard`                            | Alias of `toggle_dashboard`                                            |
 | `call_service "domain.service" "entity_id"` | Call an arbitrary HA service                                           |
@@ -152,7 +153,7 @@ The `actions.toggle_target` option controls what the generic `toggle` callback d
 | `"all"`     | Toggle every entity in the `entities` list                                                                 |
 | `"primary"` | Toggle the entity specified by `actions.primary_entity` (or `display.primary_entity`, or the first entity) |
 
-You can always bypass this option by binding `toggle_first` or `toggle_all` directly.
+You can always bypass this option by binding `toggle_first`, `toggle_all`, or `toggle_primary` directly.
 
 ## Secrets / token handling
 

@@ -13,13 +13,14 @@ import re
 from typing import Any
 from urllib.parse import urljoin, urlparse
 
-from PyQt6.QtCore import Qt, QTimer, pyqtSlot
+from PyQt6.QtCore import Qt, QThread, QTimer, pyqtSlot
+from PyQt6.QtGui import QCloseEvent
 from PyQt6.QtWidgets import QFrame, QHBoxLayout, QLabel, QPushButton, QVBoxLayout
 
 from core.utils.qobject import is_valid_qobject
 from core.utils.tooltip import set_tooltip
 from core.utils.utilities import PinnablePopup, refresh_widget_style
-from core.validation.widgets.home_assistant.home_assistant import HomeAssistantConfig
+from core.validation.widgets.home_assistant.home_assistant import HaEntityConfig, HomeAssistantConfig
 from core.widgets.base import BaseWidget
 from core.widgets.services.home_assistant.client import HomeAssistantClient
 from core.widgets.services.home_assistant.rest import HomeAssistantRestWorker, call_service_rest
@@ -39,11 +40,13 @@ class HomeAssistantWidget(BaseWidget):
 
         self._show_alt_label = False
         self._entity_states: dict[str, dict[str, Any]] = {}
+        self._template_states: dict[str, str] = {}
         self._ws_connected = False
         self._tooltip_enabled = config.tooltip
         self._dashboard_popup: PinnablePopup | None = None
         self._dashboard_auth_interceptor = None
         self._webengine_profile = None
+        self._service_workers: set[QThread] = set()
 
         self._init_container()
         self.build_widget_label(config.label, config.label_alt)
@@ -53,6 +56,7 @@ class HomeAssistantWidget(BaseWidget):
         self.register_callback("toggle", self._toggle)
         self.register_callback("toggle_first", self._toggle_first)
         self.register_callback("toggle_all", self._toggle_all)
+        self.register_callback("toggle_primary", self._toggle_primary)
         self.register_callback("toggle_dashboard", self._toggle_dashboard)
         self.register_callback("open_dashboard", self._toggle_dashboard)
         self.register_callback("call_service", self._call_service_cb)
@@ -103,11 +107,14 @@ class HomeAssistantWidget(BaseWidget):
             logger.debug("Home Assistant WebSocket connected; pausing REST poll timer")
             if self._poll_timer:
                 self._poll_timer.stop()
+            self._render_entity_templates()
         else:
             logger.debug("Home Assistant WebSocket disconnected; resuming REST poll timer")
+            self._template_states.clear()
             if self._poll_timer and self.config.polling.enabled:
                 if not self._poll_timer.isActive():
                     self._poll_timer.start()
+            self._update_label()
 
     @pyqtSlot(dict)
     def _on_state_changed(self, new_state: dict) -> None:
@@ -118,6 +125,9 @@ class HomeAssistantWidget(BaseWidget):
         if entity_id in configured_ids:
             self._entity_states[entity_id] = new_state
             self._update_label()
+            entity_cfg = next((e for e in self.config.entities if e.entity_id == entity_id), None)
+            if entity_cfg and entity_cfg.template:
+                self._render_entity_template(entity_cfg)
 
     @pyqtSlot(list)
     def _on_states_fetched(self, states: list) -> None:
@@ -127,6 +137,27 @@ class HomeAssistantWidget(BaseWidget):
             if entity_id in configured_ids:
                 self._entity_states[entity_id] = state
         self._update_label()
+        self._render_entity_templates()
+
+    def _render_entity_templates(self) -> None:
+        """Request server-side Jinja2 rendering for every entity that has a template configured."""
+        if not (self._ws_client and self._ws_connected):
+            return
+        for entity_cfg in self.config.entities:
+            if entity_cfg.template:
+                self._render_entity_template(entity_cfg)
+
+    def _render_entity_template(self, entity_cfg: HaEntityConfig) -> None:
+        """Fire a render_template WebSocket request for a single entity and update its state on response."""
+        if not (self._ws_client and self._ws_connected) or not entity_cfg.template:
+            return
+        entity_id = entity_cfg.entity_id
+
+        def _on_rendered(rendered: str, eid: str = entity_id) -> None:
+            self._template_states[eid] = str(rendered)
+            self._update_label()
+
+        self._ws_client.render_template(entity_cfg.template, callback=_on_rendered)
 
     def _do_poll(self) -> None:
         if self._ws_connected:
@@ -168,8 +199,11 @@ class HomeAssistantWidget(BaseWidget):
             primary_cfg = entities[0]
 
         primary_state_dict = states.get(primary_cfg.entity_id, {}) if primary_cfg else {}
-        primary_state = primary_state_dict.get("state", "unavailable")
-        primary_state_key = str(primary_state).lower()
+        primary_state_raw = primary_state_dict.get("state", "unavailable")
+        primary_state = (
+            self._template_states.get(primary_cfg.entity_id, primary_state_raw) if primary_cfg else "unavailable"
+        )
+        primary_state_key = str(primary_state_raw).lower()
         primary_name = (
             (primary_cfg.display_name if primary_cfg and primary_cfg.display_name else None)
             or primary_state_dict.get("attributes", {}).get("friendly_name", "")
@@ -418,7 +452,7 @@ class HomeAssistantWidget(BaseWidget):
                 )
 
                 def javaScriptConsoleMessage(self, level, message, line_number, source_id):  # type: ignore[override]
-                    if any(token in message for token in self._IGNORED_SUBSTRINGS):
+                    if any(ignored_substring in message for ignored_substring in self._IGNORED_SUBSTRINGS):
                         return
 
                     source = source_id or "<unknown>"
@@ -590,8 +624,6 @@ class HomeAssistantWidget(BaseWidget):
             self._call_service_rest_bg(domain=domain, service=service, service_data=service_data)
 
     def _call_service_rest_bg(self, domain: str, service: str, service_data: dict[str, Any] | None = None) -> None:
-        from PyQt6.QtCore import QThread
-
         class _RestServiceWorker(QThread):
             def __init__(self, base_url, token, domain, service, service_data, timeout_ms, verify_ssl):
                 super().__init__()
@@ -623,8 +655,40 @@ class HomeAssistantWidget(BaseWidget):
             timeout_ms=self.config.polling.timeout_ms,
             verify_ssl=self.config.polling.verify_ssl,
         )
-        worker.finished.connect(worker.deleteLater)
+        self._service_workers.add(worker)
+        worker.finished.connect(lambda w=worker: self._on_service_worker_finished(w))
         worker.start()
+
+    def _on_service_worker_finished(self, worker: QThread) -> None:
+        self._service_workers.discard(worker)
+        worker.deleteLater()
+
+    def closeEvent(self, event: QCloseEvent) -> None:
+        if self._poll_timer and self._poll_timer.isActive():
+            self._poll_timer.stop()
+
+        if self._rest_worker and self._rest_worker.isRunning():
+            self._rest_worker.quit()
+            self._rest_worker.wait(1500)
+
+        if self._ws_client:
+            self._ws_client.disconnect()
+
+        for worker in list(self._service_workers):
+            try:
+                if worker.isRunning():
+                    worker.quit()
+                    worker.wait(1500)
+            finally:
+                self._service_workers.discard(worker)
+                worker.deleteLater()
+
+        if self._dashboard_popup and is_valid_qobject(self._dashboard_popup):
+            self._dashboard_popup.hide()
+            self._dashboard_popup.deleteLater()
+            self._dashboard_popup = None
+
+        super().closeEvent(event)
 
     def _call_service_cb(self, service_str: str = "", entity_id: str = "") -> None:
         """Callback entry point: ``call_service "domain.service" "entity_id"``."""
