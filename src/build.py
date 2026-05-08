@@ -33,6 +33,8 @@ build_options = {
     "includes": [
         "holidays.countries",
         "winrt.windows.applicationmodel",
+        "PyQt6.QtWebEngineCore",
+        "PyQt6.QtWebEngineWidgets",
     ],
     "optimize": 1,
     "include_files": [

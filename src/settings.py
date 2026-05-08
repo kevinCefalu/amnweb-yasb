@@ -4,7 +4,7 @@ import sys
 # Application Metadata
 BUILD_VERSION = "2.0.0"
 CLI_VERSION = "1.1.7"
-RELEASE_CHANNEL = "stable"
+RELEASE_CHANNEL = "dev"
 # Application Settings
 APP_NAME = "YASB"
 APP_NAME_FULL = "Yet Another Status Bar"

@@ -33,9 +33,11 @@ But to get started quickly, choose one of the installation methods below:
 <summary><strong>Download .msi from GitHub</strong></summary>
 <br/>
 Go to the <a href="https://github.com/amnweb/yasb/releases/latest">YASB GitHub releases</a>, click Assets to reveal the downloads, and choose the installer that matches your architecture and install scope. For most devices, that's the x64 per-user installer.
+
 </details>
 
 <details>
+
 <summary><strong>WinGet</strong></summary>
 <br/>
 Download YASB from <a href="https://github.com/microsoft/winget-cli#installing-the-client">WinGet</a>. Updating YASB via winget will respect the current YASB installation scope. To install YASB, run the following command from the command line / PowerShell:
@@ -102,6 +104,7 @@ choco install yasb
 | [Grouper](https://github.com/amnweb/yasb/wiki/(Widget)-Grouper) | Groups multiple widgets together in a container. |
 | [GPU](https://github.com/amnweb/yasb/wiki/(Widget)-GPU) | Displays GPU utilization, temperature, and memory usage. |
 | [Home](https://github.com/amnweb/yasb/wiki/(Widget)-Home) | A customizable home widget menu. |
+| [Home Assistant](https://github.com/amnweb/yasb/wiki/(Widget)-Home-Assistant) | Integrates Home Assistant entity states, service calls, and dashboard popup controls. |
 | [Disk](https://github.com/amnweb/yasb/wiki/(Widget)-Disk) | Displays disk usage information. |
 | [Language](https://github.com/amnweb/yasb/wiki/(Widget)-Language) | Shows the current input language and allows switching between languages. |
 | [Launchpad](https://github.com/amnweb/yasb/wiki/(Widget)-Launchpad) | A customizable launchpad for quick access to applications. |

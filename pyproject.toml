@@ -14,6 +14,7 @@ readme = "README.md"
 requires-python = ">= 3.14"
 dependencies = [
     "pyqt6==6.10.2",
+    "pyqt6-webengine==6.10.0",
     "pydantic==2.13.3",
     "humanize==4.15.0",
     "pywin32==311",

@@ -5077,6 +5077,274 @@
       "title": "HomeEntry",
       "type": "object"
     },
+    "HaEntityConfig": {
+      "additionalProperties": false,
+      "properties": {
+        "entity_id": {
+          "title": "Entity Id",
+          "type": "string"
+        },
+        "display_name": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Display Name"
+        },
+        "icon": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Icon"
+        },
+        "template": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Template"
+        }
+      },
+      "required": [
+        "entity_id"
+      ],
+      "title": "HaEntityConfig",
+      "type": "object"
+    },
+    "HomeAssistantActionsConfig": {
+      "additionalProperties": false,
+      "properties": {
+        "toggle_target": {
+          "default": "first",
+          "enum": [
+            "first",
+            "all",
+            "primary"
+          ],
+          "title": "Toggle Target",
+          "type": "string"
+        },
+        "primary_entity": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Primary Entity"
+        }
+      },
+      "title": "HomeAssistantActionsConfig",
+      "type": "object"
+    },
+    "HomeAssistantCallbacksConfig": {
+      "additionalProperties": false,
+      "properties": {
+        "on_left": {
+          "default": "toggle_first",
+          "title": "On Left",
+          "type": "string"
+        },
+        "on_middle": {
+          "default": "toggle_label",
+          "title": "On Middle",
+          "type": "string"
+        },
+        "on_right": {
+          "default": "refresh",
+          "title": "On Right",
+          "type": "string"
+        }
+      },
+      "title": "HomeAssistantCallbacksConfig",
+      "type": "object"
+    },
+    "HomeAssistantConfig": {
+      "additionalProperties": false,
+      "properties": {
+        "base_url": {
+          "default": "http://homeassistant.local:8123",
+          "title": "Base Url",
+          "type": "string"
+        },
+        "token": {
+          "default": "",
+          "title": "Token",
+          "type": "string"
+        },
+        "label": {
+          "default": "<span class='icon'>\uf015</span> {state}",
+          "title": "Label",
+          "type": "string"
+        },
+        "label_alt": {
+          "default": "HA: {primary.name}: {primary.state}",
+          "title": "Label Alt",
+          "type": "string"
+        },
+        "ws": {
+          "$ref": "#/$defs/HomeAssistantWsConfig",
+          "default": {
+            "enabled": true,
+            "reconnect_interval_ms": 4000
+          }
+        },
+        "polling": {
+          "$ref": "#/$defs/HomeAssistantPollingConfig",
+          "default": {
+            "enabled": true,
+            "interval_ms": 10000,
+            "timeout_ms": 5000,
+            "verify_ssl": true
+          }
+        },
+        "display": {
+          "$ref": "#/$defs/HomeAssistantDisplayConfig",
+          "default": {
+            "primary_entity": null
+          }
+        },
+        "actions": {
+          "$ref": "#/$defs/HomeAssistantActionsConfig",
+          "default": {
+            "toggle_target": "first",
+            "primary_entity": null
+          }
+        },
+        "entities": {
+          "default": [],
+          "items": {
+            "$ref": "#/$defs/HaEntityConfig"
+          },
+          "title": "Entities",
+          "type": "array"
+        },
+        "callbacks": {
+          "$ref": "#/$defs/HomeAssistantCallbacksConfig",
+          "default": {
+            "on_left": "toggle_first",
+            "on_middle": "toggle_label",
+            "on_right": "refresh"
+          }
+        },
+        "keybindings": {
+          "default": [],
+          "items": {
+            "$ref": "#/$defs/KeybindingConfig"
+          },
+          "title": "Keybindings",
+          "type": "array"
+        }
+      },
+      "title": "HomeAssistantConfig",
+      "type": "object"
+    },
+    "HomeAssistantDisplayConfig": {
+      "additionalProperties": false,
+      "properties": {
+        "primary_entity": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Primary Entity"
+        }
+      },
+      "title": "HomeAssistantDisplayConfig",
+      "type": "object"
+    },
+    "HomeAssistantEntry": {
+      "properties": {
+        "type": {
+          "const": "home_assistant.home_assistant.HomeAssistantWidget",
+          "title": "Type",
+          "type": "string"
+        },
+        "options": {
+          "$ref": "#/$defs/HomeAssistantConfig"
+        }
+      },
+      "required": [
+        "type",
+        "options"
+      ],
+      "title": "HomeAssistantEntry",
+      "type": "object"
+    },
+    "HomeAssistantPollingConfig": {
+      "additionalProperties": false,
+      "properties": {
+        "enabled": {
+          "default": true,
+          "title": "Enabled",
+          "type": "boolean"
+        },
+        "interval_ms": {
+          "default": 10000,
+          "maximum": 3600000,
+          "minimum": 1000,
+          "title": "Interval Ms",
+          "type": "integer"
+        },
+        "timeout_ms": {
+          "default": 5000,
+          "maximum": 60000,
+          "minimum": 500,
+          "title": "Timeout Ms",
+          "type": "integer"
+        },
+        "verify_ssl": {
+          "default": true,
+          "title": "Verify Ssl",
+          "type": "boolean"
+        }
+      },
+      "title": "HomeAssistantPollingConfig",
+      "type": "object"
+    },
+    "HomeAssistantWsConfig": {
+      "additionalProperties": false,
+      "properties": {
+        "enabled": {
+          "default": true,
+          "title": "Enabled",
+          "type": "boolean"
+        },
+        "reconnect_interval_ms": {
+          "default": 4000,
+          "maximum": 60000,
+          "minimum": 1000,
+          "title": "Reconnect Interval Ms",
+          "type": "integer"
+        }
+      },
+      "title": "HomeAssistantWsConfig",
+      "type": "object"
+    },
     "IgnoreAppsConfig": {
       "additionalProperties": false,
       "properties": {
@@ -13847,6 +14115,9 @@
           },
           {
             "$ref": "#/$defs/HomeEntry"
+          },
+          {
+            "$ref": "#/$defs/HomeAssistantEntry"
           },
           {
             "$ref": "#/$defs/LanguageEntry"
